@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-ios:
-    runs-on: macos-15
+    runs-on: macos-26
     env:
       # Credenciales públicas de Supabase (se agregan como Secrets del repo).
       EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
@@ -16,6 +16,13 @@ jobs:
     steps:
       - name: Descargar código
         uses: actions/checkout@v4
+
+      - name: Seleccionar Xcode más reciente (Swift 6.2)
+        run: |
+          ls /Applications | grep -i xcode || true
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_26* 2>/dev/null | sort -V | tail -1 || echo /Applications/Xcode.app)"
+          xcodebuild -version
+          swift --version
 
       - name: Configurar Node
         uses: actions/setup-node@v4
