@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -22,9 +22,13 @@ export function SegmentedControl<T extends string>({ options, value, onChange }:
   const segW = w ? (w - 8) / n : 0;
   const activeIdx = options.findIndex((o) => o.key === value);
 
-  if (segW) {
-    tx.value = withSpring(activeIdx * segW, { damping: 16, stiffness: 160 });
-  }
+  // Mover la animación a un efecto: escribir a un shared value durante el
+  // render crashea en builds de release (iOS).
+  useEffect(() => {
+    if (segW) {
+      tx.value = withSpring(activeIdx * segW, { damping: 16, stiffness: 160 });
+    }
+  }, [activeIdx, segW]);
 
   const indicator = useAnimatedStyle(() => ({
     transform: [{ translateX: tx.value }],

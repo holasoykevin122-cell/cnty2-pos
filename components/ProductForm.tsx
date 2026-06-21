@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -267,7 +267,9 @@ function Field({
 
 function Toggle({ value }: { value: boolean }) {
   const p = useSharedValue(value ? 1 : 0);
-  p.value = withTiming(value ? 1 : 0, { duration: 200 });
+  useEffect(() => {
+    p.value = withTiming(value ? 1 : 0, { duration: 200 });
+  }, [value]);
   const knob = useAnimatedStyle(() => ({ transform: [{ translateX: p.value * 22 }] }));
   const track = useAnimatedStyle(() => ({
     backgroundColor: value ? colors.primary : colors.borderStrong,

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -68,7 +68,9 @@ function TabButton({
   onPress: () => void;
 }) {
   const p = useSharedValue(focused ? 1 : 0);
-  p.value = withTiming(focused ? 1 : 0, { duration: 200 });
+  useEffect(() => {
+    p.value = withTiming(focused ? 1 : 0, { duration: 200 });
+  }, [focused]);
 
   const indicator = useAnimatedStyle(() => ({
     opacity: p.value,
