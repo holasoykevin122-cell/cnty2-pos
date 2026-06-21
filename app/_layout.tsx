@@ -18,6 +18,7 @@ import { StoreProvider } from '../store/StoreContext';
 import { AuthProvider, useAuth } from '../store/AuthContext';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { LoginScreen } from '../components/LoginScreen';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import { colors } from '../theme';
 
 function LoadingView() {
@@ -37,6 +38,7 @@ function RootNavigator() {
   if (isSupabaseConfigured && !session) return <LoginScreen />;
 
   return (
+    <ErrorBoundary>
     <StoreProvider>
       <StatusBar style="dark" />
       <Stack
@@ -57,6 +59,7 @@ function RootNavigator() {
         />
       </Stack>
     </StoreProvider>
+    </ErrorBoundary>
   );
 }
 

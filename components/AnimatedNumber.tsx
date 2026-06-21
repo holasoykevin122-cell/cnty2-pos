@@ -1,12 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { TextStyle } from 'react-native';
-import Animated, {
-  Easing,
-  useAnimatedReaction,
-  useSharedValue,
-  withTiming,
-  runOnJS,
-} from 'react-native-reanimated';
+import React, { useEffect, useRef, useState } from 'react';
+import { Text, TextStyle } from 'react-native';
 
 type Props = {
   value: number;
@@ -15,26 +8,32 @@ type Props = {
   duration?: number;
 };
 
-/** Texto numérico que "cuenta" hasta el valor con animación suave. */
+/**
+ * Texto numérico que "cuenta" hasta el valor. Usa requestAnimationFrame en JS
+ * (sin worklets de Reanimated) para máxima estabilidad en builds de release.
+ */
 export function AnimatedNumber({ value, format, style, duration = 900 }: Props) {
-  const progress = useSharedValue(0);
-  const [display, setDisplay] = useState(() => (format ? format(value) : String(Math.round(value))));
+  const fmt = (n: number) => (format ? format(n) : String(Math.round(n)));
+  const [display, setDisplay] = useState(() => fmt(value));
+  const fromRef = useRef(value);
 
   useEffect(() => {
-    progress.value = 0;
-    progress.value = withTiming(value, {
-      duration,
-      easing: Easing.out(Easing.cubic),
-    });
+    const from = fromRef.current;
+    const start = Date.now();
+    let raf = 0;
+    const tick = () => {
+      const t = Math.min(1, (Date.now() - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+      setDisplay(fmt(from + (value - from) * eased));
+      if (t < 1) {
+        raf = requestAnimationFrame(tick);
+      } else {
+        fromRef.current = value;
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, [value, duration]);
 
-  useAnimatedReaction(
-    () => progress.value,
-    (cur) => {
-      const txt = format ? format(cur) : String(Math.round(cur));
-      runOnJS(setDisplay)(txt);
-    }
-  );
-
-  return <Animated.Text style={style}>{display}</Animated.Text>;
+  return <Text style={style}>{display}</Text>;
 }
