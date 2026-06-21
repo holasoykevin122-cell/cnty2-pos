@@ -1,0 +1,64 @@
+name: Build iOS (unsigned IPA para Sideloadly)
+
+# Se ejecuta manualmente desde la pestaña "Actions" de GitHub.
+on:
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-15
+    env:
+      # Credenciales públicas de Supabase (se agregan como Secrets del repo).
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependencias
+        run: npm install --legacy-peer-deps
+
+      - name: Generar proyecto iOS nativo (prebuild)
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Instalar CocoaPods
+        run: cd ios && pod install
+
+      - name: Compilar archivo (sin firma)
+        run: |
+          cd ios
+          WS=$(ls -d *.xcworkspace | head -1)
+          SCHEME=$(basename "$WS" .xcworkspace)
+          echo "Workspace: $WS | Scheme: $SCHEME"
+          xcodebuild \
+            -workspace "$WS" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            -archivePath build/app.xcarchive \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE_SPECIFIER=""
+
+      - name: Empaquetar .ipa
+        run: |
+          cd ios/build
+          mkdir -p Payload
+          cp -R app.xcarchive/Products/Applications/*.app Payload/
+          zip -qr cnty2-unsigned.ipa Payload
+          ls -la
+
+      - name: Subir el .ipa como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: cnty2-ios-unsigned
+          path: ios/build/cnty2-unsigned.ipa
+          if-no-files-found: error
