@@ -19,7 +19,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { Product } from '../data/types';
+import { Product, SizeSystem, SIZE_SETS } from '../data/types';
 import { config, formatMoney } from '../data/config';
 import { colors, fonts, radius, shadow, spacing, type } from '../theme';
 import { Icon } from './Icon';
@@ -44,6 +44,15 @@ export function ProductForm({ title, submitLabel, initial, onSubmit, onDelete }:
   const [stock, setStock] = useState(initial ? String(initial.stock) : '');
   const [priceVariable, setPriceVariable] = useState(initial?.priceVariable ?? false);
   const [image, setImage] = useState<string | null>(initial?.image ?? null);
+  const [sizeSystem, setSizeSystem] = useState<SizeSystem | null>(initial?.sizeSystem ?? null);
+  const [sizes, setSizes] = useState<string[]>(initial?.sizes ?? []);
+
+  const chooseSystem = (sys: SizeSystem | null) => {
+    setSizeSystem(sys);
+    setSizes([]); // al cambiar de sistema se limpian las tallas elegidas
+  };
+  const toggleSize = (s: string) =>
+    setSizes((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
 
   const pickImage = async (fromCamera: boolean) => {
     const perm = fromCamera
@@ -72,6 +81,8 @@ export function ProductForm({ title, submitLabel, initial, onSubmit, onDelete }:
       priceVariable,
       stock: stockNum,
       image,
+      sizeSystem,
+      sizes: sizeSystem ? sizes : [],
     });
     router.back();
   };
@@ -207,6 +218,32 @@ export function ProductForm({ title, submitLabel, initial, onSubmit, onDelete }:
               />
             </Field>
 
+            {/* Tallas */}
+            <Field label="Tallas (opcional)">
+              <View style={styles.sizeSysRow}>
+                <SysButton label="Letras" hint="S · M · L" active={sizeSystem === 'letras'} onPress={() => chooseSystem('letras')} />
+                <SysButton label="Números" hint="8 · 10 · 12" active={sizeSystem === 'numeros'} onPress={() => chooseSystem('numeros')} />
+                <SysButton label="Sin tallas" hint="" active={sizeSystem === null} onPress={() => chooseSystem(null)} />
+              </View>
+              {sizeSystem && (
+                <View style={styles.sizeChips}>
+                  {SIZE_SETS[sizeSystem].map((s) => {
+                    const on = sizes.includes(s);
+                    return (
+                      <PressableScale
+                        key={s}
+                        style={[styles.sizeChip, on && styles.sizeChipOn]}
+                        onPress={() => toggleSize(s)}
+                        to={0.9}
+                      >
+                        <Text style={[styles.sizeChipTxt, on && styles.sizeChipTxtOn]}>{s}</Text>
+                      </PressableScale>
+                    );
+                  })}
+                </View>
+              )}
+            </Field>
+
             {/* Precio variable */}
             <PressableScale style={styles.toggleCard} onPress={() => setPriceVariable((v) => !v)} to={0.99}>
               <View style={{ flex: 1 }}>
@@ -227,6 +264,25 @@ export function ProductForm({ title, submitLabel, initial, onSubmit, onDelete }:
         </PressableScale>
       </View>
     </View>
+  );
+}
+
+function SysButton({
+  label,
+  hint,
+  active,
+  onPress,
+}: {
+  label: string;
+  hint: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <PressableScale style={[styles.sysBtn, active && styles.sysBtnOn]} onPress={onPress} to={0.96}>
+      <Text style={[styles.sysBtnLabel, active && styles.sysBtnLabelOn]}>{label}</Text>
+      {hint ? <Text style={[styles.sysBtnHint, active && styles.sysBtnHintOn]}>{hint}</Text> : null}
+    </PressableScale>
   );
 }
 
@@ -351,6 +407,36 @@ const styles = StyleSheet.create({
   },
   marginDot: { width: 7, height: 7, borderRadius: 4 },
   marginTxt: { fontFamily: fonts.medium, fontSize: 13, color: colors.textMuted },
+
+  sizeSysRow: { flexDirection: 'row', gap: spacing.sm },
+  sysBtn: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  sysBtnOn: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+  sysBtnLabel: { fontFamily: fonts.semibold, fontSize: 13.5, color: colors.text },
+  sysBtnLabelOn: { color: colors.primary },
+  sysBtnHint: { fontFamily: fonts.medium, fontSize: 11, color: colors.textSubtle, marginTop: 2 },
+  sysBtnHintOn: { color: colors.primaryTint },
+  sizeChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md },
+  sizeChip: {
+    minWidth: 48,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 9,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+  },
+  sizeChipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  sizeChipTxt: { fontFamily: fonts.bold, fontSize: 14, color: colors.text },
+  sizeChipTxtOn: { color: colors.onPrimary },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   currency: { fontFamily: fonts.semibold, fontSize: 15, color: colors.textMuted },
   priceInput: { flex: 1, fontFamily: fonts.medium, fontSize: 15, color: colors.text, padding: 0 },

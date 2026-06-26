@@ -15,6 +15,7 @@ const TABS: { name: string; label: string; icon: IconName }[] = [
   { name: 'index', label: 'Resumen', icon: 'chart' },
   { name: 'inventory', label: 'Inventario', icon: 'box' },
   { name: 'sell', label: 'Vender', icon: 'cart' },
+  { name: 'gastos', label: 'Gastos', icon: 'wallet' },
 ];
 
 export default function TabsLayout() {
@@ -26,6 +27,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="index" />
       <Tabs.Screen name="inventory" />
       <Tabs.Screen name="sell" />
+      <Tabs.Screen name="gastos" />
     </Tabs>
   );
 }

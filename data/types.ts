@@ -1,3 +1,11 @@
+export type SizeSystem = 'letras' | 'numeros';
+
+/** Conjuntos de tallas disponibles según el sistema elegido. */
+export const SIZE_SETS: Record<SizeSystem, string[]> = {
+  letras: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+  numeros: ['6', '8', '10', '12', '14', '16'],
+};
+
 export type Product = {
   id: string;
   name: string;
@@ -10,7 +18,19 @@ export type Product = {
   stock: number;
   sold: number;
   image: string | null;
+  /** Sistema de tallas elegido para este producto (o null si no usa tallas). */
+  sizeSystem: SizeSystem | null;
+  /** Tallas disponibles (ej. ['S','M','L'] o ['8','10','12']). */
+  sizes: string[];
   createdAt: number;
+};
+
+/** Gasto del negocio (renta, servicios, compras, etc.). */
+export type Expense = {
+  id: string;
+  date: number;
+  concept: string;
+  amount: number;
 };
 
 export type Sale = {

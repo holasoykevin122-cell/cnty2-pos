@@ -118,3 +118,24 @@ create policy "auth update product images" on storage.objects
   for update to authenticated using (bucket_id = 'product-images');
 create policy "auth delete product images" on storage.objects
   for delete to authenticated using (bucket_id = 'product-images');
+
+-- ============================================================
+--  TALLAS POR PRODUCTO (migración aditiva, no borra nada)
+-- ============================================================
+alter table public.products add column if not exists size_system text;
+alter table public.products add column if not exists sizes text[] not null default '{}';
+
+-- ============================================================
+--  GASTOS DEL NEGOCIO
+-- ============================================================
+create table if not exists public.expenses (
+  id         uuid primary key default gen_random_uuid(),
+  owner_id   uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  concept    text not null,
+  amount     numeric not null default 0,
+  created_at timestamptz not null default now()
+);
+create index if not exists expenses_created_idx on public.expenses (created_at);
+alter table public.expenses enable row level security;
+create policy "own expenses" on public.expenses
+  for all using (auth.uid() = owner_id) with check (auth.uid() = owner_id);

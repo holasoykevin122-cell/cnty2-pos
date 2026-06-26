@@ -1,8 +1,8 @@
-import { Product, Sale } from './types';
+import { Expense, Product, Sale, SizeSystem } from './types';
 
 const DAY = 24 * 60 * 60 * 1000;
 
-export const initialProducts: Product[] = [
+const baseProducts: Omit<Product, 'sizeSystem' | 'sizes'>[] = [
   {
     id: 'p1',
     name: 'Jean Skinny Tiro Alto',
@@ -108,6 +108,26 @@ export const initialProducts: Product[] = [
     createdAt: Date.now() - 6 * DAY,
   },
 ];
+
+// Asigna tallas de ejemplo a cada producto (variando entre letras y números).
+export const initialProducts: Product[] = baseProducts.map((p, i) => {
+  const useNumbers = i % 3 === 2; // algunos con números
+  const sizeSystem: SizeSystem = useNumbers ? 'numeros' : 'letras';
+  const sizes = useNumbers ? ['8', '10', '12', '14'] : ['S', 'M', 'L', 'XL'];
+  return { ...p, sizeSystem, sizes };
+});
+
+/** Gastos de ejemplo (modo demo). */
+export function generateInitialExpenses(): Expense[] {
+  const now = Date.now();
+  return [
+    { id: 'e1', date: now - 1 * DAY, concept: 'Renta del local', amount: 850000 },
+    { id: 'e2', date: now - 2 * DAY, concept: 'Compra de mercancía', amount: 1200000 },
+    { id: 'e3', date: now - 3 * DAY, concept: 'Servicios (luz, agua)', amount: 180000 },
+    { id: 'e4', date: now - 5 * DAY, concept: 'Bolsas y empaque', amount: 95000 },
+    { id: 'e5', date: now - 9 * DAY, concept: 'Publicidad redes', amount: 120000 },
+  ];
+}
 
 /**
  * Genera ventas de ejemplo de los últimos 30 días.

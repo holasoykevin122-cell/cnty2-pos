@@ -105,6 +105,19 @@ export default function ProductDetail() {
           </Animated.View>
         )}
 
+        {product.sizes.length > 0 && (
+          <Animated.View entering={FadeInDown.duration(440).delay(105)} style={{ marginTop: spacing.lg }}>
+            <Text style={styles.sizesLabel}>Tallas disponibles</Text>
+            <View style={styles.sizesRow}>
+              {product.sizes.map((s) => (
+                <View key={s} style={styles.sizeBadge}>
+                  <Text style={styles.sizeBadgeTxt}>{s}</Text>
+                </View>
+              ))}
+            </View>
+          </Animated.View>
+        )}
+
         {/* Histórico */}
         <Animated.View entering={FadeInDown.duration(460).delay(120)}>
           <Text style={styles.sectionTitle}>Histórico de ventas</Text>
@@ -244,6 +257,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
   varNoteTxt: { ...type.caption, color: colors.textMuted },
+  sizesLabel: { ...type.small, color: colors.textMuted, marginBottom: spacing.sm },
+  sizesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  sizeBadge: {
+    minWidth: 42,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderRadius: radius.sm,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+  },
+  sizeBadgeTxt: { fontFamily: fonts.bold, fontSize: 13, color: colors.primary },
 
   sectionTitle: { ...type.h2, color: colors.text, marginTop: spacing.xxl, marginBottom: spacing.md },
 

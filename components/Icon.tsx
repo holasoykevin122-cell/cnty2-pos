@@ -24,7 +24,8 @@ export type IconName =
   | 'cart'
   | 'sparkle'
   | 'calendar'
-  | 'logout';
+  | 'logout'
+  | 'wallet';
 
 type Props = {
   name: IconName;
@@ -191,6 +192,14 @@ function render(name: IconName, s: any) {
           <Path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" {...s} />
           <Path d="M16 17l5-5-5-5" {...s} />
           <Line x1={21} y1={12} x2={9} y2={12} {...s} />
+        </>
+      );
+    case 'wallet':
+      return (
+        <>
+          <Path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" {...s} />
+          <Path d="M3 5v14a2 2 0 0 0 2 2h16v-5" {...s} />
+          <Path d="M18 12a2 2 0 0 0 0 4h4v-4z" {...s} />
         </>
       );
     default:

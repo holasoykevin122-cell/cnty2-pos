@@ -57,6 +57,10 @@ function RootNavigator() {
           name="product/edit/[id]"
           options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
         />
+        <Stack.Screen
+          name="expense/new"
+          options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+        />
       </Stack>
     </StoreProvider>
     </ErrorBoundary>

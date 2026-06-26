@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Product, Sale } from '../data/types';
+import { Expense, Product, Sale, SizeSystem } from '../data/types';
 
 type ProductValues = Omit<Product, 'id' | 'sold' | 'createdAt'>;
 type CartLine = { product: Product; qty: number; unitPrice: number };
@@ -15,7 +15,18 @@ function mapProduct(r: any): Product {
     stock: r.stock ?? 0,
     sold: r.sold ?? 0,
     image: r.image_url ?? null,
+    sizeSystem: (r.size_system ?? null) as SizeSystem | null,
+    sizes: Array.isArray(r.sizes) ? r.sizes : [],
     createdAt: r.created_at ? Date.parse(r.created_at) : Date.now(),
+  };
+}
+
+function mapExpense(r: any): Expense {
+  return {
+    id: r.id,
+    concept: r.concept,
+    amount: Number(r.amount),
+    date: r.created_at ? Date.parse(r.created_at) : Date.now(),
   };
 }
 
@@ -85,6 +96,8 @@ export async function insertProduct(values: ProductValues, userId: string): Prom
       price_variable: values.priceVariable,
       stock: values.stock,
       image_url: image,
+      size_system: values.sizeSystem,
+      sizes: values.sizes,
     })
     .select('*')
     .single();
@@ -104,6 +117,8 @@ export async function updateProductDb(
   if (patch.price !== undefined) body.price = patch.price;
   if (patch.priceVariable !== undefined) body.price_variable = patch.priceVariable;
   if (patch.stock !== undefined) body.stock = patch.stock;
+  if (patch.sizeSystem !== undefined) body.size_system = patch.sizeSystem;
+  if (patch.sizes !== undefined) body.sizes = patch.sizes;
   if (patch.image !== undefined) body.image_url = await uploadImage(patch.image, userId);
 
   const { data, error } = await supabase!
@@ -131,5 +146,31 @@ export async function recordSaleRpc(items: CartLine[]): Promise<void> {
     unit_cost: it.product.cost,
   }));
   const { error } = await supabase!.rpc('record_sale', { items: payload });
+  if (error) throw error;
+}
+
+// ---------- GASTOS ----------
+export async function fetchExpenses(): Promise<Expense[]> {
+  const { data, error } = await supabase!
+    .from('expenses')
+    .select('id, concept, amount, created_at')
+    .order('created_at', { ascending: false })
+    .limit(2000);
+  if (error) throw error;
+  return (data ?? []).map(mapExpense);
+}
+
+export async function insertExpense(concept: string, amount: number): Promise<Expense> {
+  const { data, error } = await supabase!
+    .from('expenses')
+    .insert({ concept, amount })
+    .select('id, concept, amount, created_at')
+    .single();
+  if (error) throw error;
+  return mapExpense(data);
+}
+
+export async function deleteExpenseDb(id: string): Promise<void> {
+  const { error } = await supabase!.from('expenses').delete().eq('id', id);
   if (error) throw error;
 }

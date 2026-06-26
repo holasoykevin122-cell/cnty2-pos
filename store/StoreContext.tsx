@@ -1,16 +1,19 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
-import { Period, PERIODS, Product, Sale } from '../data/types';
-import { generateInitialSales, initialProducts } from '../data/mock';
+import { Expense, Period, PERIODS, Product, Sale } from '../data/types';
+import { generateInitialExpenses, generateInitialSales, initialProducts } from '../data/mock';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import {
   fetchProducts,
   fetchSales,
+  fetchExpenses,
   insertProduct,
   updateProductDb,
   deleteProductDb,
   recordSaleRpc,
+  insertExpense,
+  deleteExpenseDb,
 } from './supabaseApi';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -49,13 +52,25 @@ export type DayRow = {
   orders: number;
 };
 
+export type Balance = {
+  /** Ganancia de las ventas (precio − costo). */
+  profit: number;
+  /** Total de gastos del periodo. */
+  expenses: number;
+  /** Resultado neto: ganancia − gastos. Positivo = ganando, negativo = perdiendo. */
+  net: number;
+};
+
 type StoreContextValue = {
   products: Product[];
   sales: Sale[];
+  expenses: Expense[];
   addProduct: (p: Omit<Product, 'id' | 'sold' | 'createdAt'>) => void;
   updateProduct: (id: string, patch: Partial<Product>) => void;
   deleteProduct: (id: string) => void;
   recordSale: (items: CartItem[]) => void;
+  addExpense: (concept: string, amount: number) => void;
+  deleteExpense: (id: string) => void;
   getMetrics: (period: Period) => Metrics;
   getProductStats: (productId: string) => ProductStats;
   getDailyBreakdown: (period: Period) => DayRow[];
@@ -63,6 +78,14 @@ type StoreContextValue = {
   getMetricsRange: (start: number, end: number) => Metrics;
   /** Desglose día por día para un rango [start, end). */
   getBreakdownRange: (start: number, end: number) => DayRow[];
+  /** Balance ganancia vs gastos para un periodo. */
+  getBalance: (period: Period) => Balance;
+  /** Gastos dentro de un periodo (más reciente primero). */
+  getExpenses: (period: Period) => Expense[];
+  /** Balance para un rango [start, end) personalizado. */
+  getBalanceRange: (start: number, end: number) => Balance;
+  /** Gastos dentro de un rango [start, end). */
+  getExpensesRange: (start: number, end: number) => Expense[];
 };
 
 function dayLabel(dayStart: number, today: number) {
@@ -93,6 +116,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [sales, setSales] = useState<Sale[]>(() =>
     isSupabaseConfigured ? [] : generateInitialSales(initialProducts)
   );
+  const [expenses, setExpenses] = useState<Expense[]>(() =>
+    isSupabaseConfigured ? [] : generateInitialExpenses()
+  );
 
   // Carga inicial: desde Supabase (si hay sesión) o datos de ejemplo.
   useEffect(() => {
@@ -100,22 +126,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (useSb) {
       (async () => {
         try {
-          const [p, s] = await Promise.all([fetchProducts(), fetchSales()]);
+          const [p, s, e] = await Promise.all([fetchProducts(), fetchSales(), fetchExpenses()]);
           if (active) {
             setProducts(p);
             setSales(s);
+            setExpenses(e);
           }
-        } catch (e) {
-          console.warn('Error cargando datos de Supabase:', e);
+        } catch (err) {
+          console.warn('Error cargando datos de Supabase:', err);
         }
       })();
     } else if (!isSupabaseConfigured) {
       setProducts(initialProducts);
       setSales(generateInitialSales(initialProducts));
+      setExpenses(generateInitialExpenses());
     } else {
-      // configurado pero sin sesión todavía
       setProducts([]);
       setSales([]);
+      setExpenses([]);
     }
     return () => {
       active = false;
@@ -125,11 +153,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const reload = useCallback(async () => {
     if (!useSb) return;
     try {
-      const [p, s] = await Promise.all([fetchProducts(), fetchSales()]);
+      const [p, s, e] = await Promise.all([fetchProducts(), fetchSales(), fetchExpenses()]);
       setProducts(p);
       setSales(s);
-    } catch (e) {
-      console.warn('Error recargando datos:', e);
+      setExpenses(e);
+    } catch (err) {
+      console.warn('Error recargando datos:', err);
     }
   }, [useSb]);
 
@@ -227,6 +256,44 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       );
     },
     [useSb, reload]
+  );
+
+  const addExpense = useCallback(
+    async (concept: string, amount: number) => {
+      if (!concept.trim() || amount <= 0) return;
+      if (useSb) {
+        try {
+          const created = await insertExpense(concept.trim(), amount);
+          setExpenses((prev) => [created, ...prev]);
+        } catch (e) {
+          console.warn(e);
+          Alert.alert('Error', 'No se pudo guardar el gasto.');
+        }
+      } else {
+        setExpenses((prev) => [
+          { id: 'e' + Date.now(), date: Date.now(), concept: concept.trim(), amount },
+          ...prev,
+        ]);
+      }
+    },
+    [useSb]
+  );
+
+  const deleteExpense = useCallback(
+    async (id: string) => {
+      if (useSb) {
+        try {
+          await deleteExpenseDb(id);
+          setExpenses((prev) => prev.filter((e) => e.id !== id));
+        } catch (e) {
+          console.warn(e);
+          Alert.alert('Error', 'No se pudo eliminar el gasto.');
+        }
+      } else {
+        setExpenses((prev) => prev.filter((e) => e.id !== id));
+      }
+    },
+    [useSb]
   );
 
   const getMetrics = useCallback(
@@ -491,9 +558,56 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [sales]
   );
 
+  const periodWindowStart = (period: Period) => {
+    const days = PERIODS.find((p) => p.key === period)!.days;
+    const now = Date.now();
+    return period === 'day' ? startOfDay(now) : now - days * DAY;
+  };
+
+  const getBalance = useCallback(
+    (period: Period): Balance => {
+      const start = periodWindowStart(period);
+      const profit = sales
+        .filter((s) => s.date >= start)
+        .reduce((a, x) => a + x.items.reduce((b, it) => b + it.qty * (it.unitPrice - it.unitCost), 0), 0);
+      const exp = expenses.filter((e) => e.date >= start).reduce((a, e) => a + e.amount, 0);
+      return { profit, expenses: exp, net: profit - exp };
+    },
+    [sales, expenses]
+  );
+
+  const getExpenses = useCallback(
+    (period: Period): Expense[] => {
+      const start = periodWindowStart(period);
+      return expenses.filter((e) => e.date >= start).sort((a, b) => b.date - a.date);
+    },
+    [expenses]
+  );
+
+  const getBalanceRange = useCallback(
+    (start: number, end: number): Balance => {
+      const inRange = sales.filter((s) => s.date >= start && s.date < end);
+      const profit = inRange.reduce(
+        (a, x) => a + x.items.reduce((b, it) => b + it.qty * (it.unitPrice - it.unitCost), 0),
+        0
+      );
+      const exp = expenses
+        .filter((e) => e.date >= start && e.date < end)
+        .reduce((a, e) => a + e.amount, 0);
+      return { profit, expenses: exp, net: profit - exp };
+    },
+    [sales, expenses]
+  );
+
+  const getExpensesRange = useCallback(
+    (start: number, end: number): Expense[] =>
+      expenses.filter((e) => e.date >= start && e.date < end).sort((a, b) => b.date - a.date),
+    [expenses]
+  );
+
   const value = useMemo(
-    () => ({ products, sales, addProduct, updateProduct, deleteProduct, recordSale, getMetrics, getProductStats, getDailyBreakdown, getMetricsRange, getBreakdownRange }),
-    [products, sales, addProduct, updateProduct, deleteProduct, recordSale, getMetrics, getProductStats, getDailyBreakdown, getMetricsRange, getBreakdownRange]
+    () => ({ products, sales, expenses, addProduct, updateProduct, deleteProduct, recordSale, addExpense, deleteExpense, getMetrics, getProductStats, getDailyBreakdown, getMetricsRange, getBreakdownRange, getBalance, getExpenses, getBalanceRange, getExpensesRange }),
+    [products, sales, expenses, addProduct, updateProduct, deleteProduct, recordSale, addExpense, deleteExpense, getMetrics, getProductStats, getDailyBreakdown, getMetricsRange, getBreakdownRange, getBalance, getExpenses, getBalanceRange, getExpensesRange]
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
